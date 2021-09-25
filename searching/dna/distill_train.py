@@ -32,6 +32,7 @@ def distill_train(supernet,
                   start_epoch=0,
                   model_pool=None,
                   writer=None):
+    # model pool 用于resume的模型路径
 
     if args.reset_bn_eval:
         reset_data = next(iter(train_loader))
@@ -47,25 +48,32 @@ def distill_train(supernet,
                               model_pool=model_pool)
 
     for stage in range(start_stage, args.stage_num):
+        # 6个阶段，对应6个层
         if args.guide_input:
+        # 使用teacher的特征作为输入
             model_pool = []
         loss = None
         eval_losses = []
+
         if stage != start_stage:
             start_epoch = 1
         if start_epoch == 1:
             if args.separate_train:
+                # 分阶段独立训练
                 optimizer = create_optimizer(args,
                                              model=supernet.module.get_block(stage) \
                                                  if hasattr(supernet, 'module') \
                                                  else supernet.get_block(stage),
                                              stage=stage)
             else:
+                # 整体训练
                 optimizer = create_optimizer(args, supernet, stage=stage)
             scheduler = create_scheduler(args, optimizer)[0]
         if args.reverse_train:
+            # 反向训练 从高到低
             stage = args.stage_num - 1 - stage
         if not skip_first_train and not args.eval_mode:
+            # 训练一个阶段，即某一部分层
             loss = _train_stage(supernet=supernet,
                                 teacher=teacher,
                                 train_loader=train_loader,
@@ -81,6 +89,7 @@ def distill_train(supernet,
                                 writer=writer)
         else:
             skip_first_train = False
+        
         if not (args.guide_input and args.train_mode):
             # not skip search
             potential = None
@@ -265,17 +274,21 @@ def _train_stage(supernet,
                  start_epoch=1,
                  use_target=False,
                  writer=None):
+    # 如图所示，训练某一个阶段的
 
     if args.reset_after_stage and stage > 0 and start_epoch == 1:
         if hasattr(supernet, 'module'):
+            # 重新初始化参数
             supernet.module.reset_params()
         else:
             supernet.reset_params()
     for epoch in range(start_epoch, args.step_epochs + 1):
         if args.distributed:
             train_loader.sampler.set_epoch(epoch)
+
         if scheduler is not None:
             scheduler.step(epoch)
+
         loss = _train_epoch(supernet=supernet,
                             teacher=teacher,
                             train_loader=train_loader,
@@ -290,6 +303,7 @@ def _train_stage(supernet,
                             use_target=use_target,
                             writer=writer,
                             saver=saver)
+        
         if args.eval_intervals == 0 or epoch % args.eval_intervals == 0 or epoch == args.step_epochs:
             eval_loss = _evaluate(supernet=supernet,
                                   teacher=teacher,
@@ -326,6 +340,7 @@ def _train_epoch(supernet,
                  use_target=False,
                  writer=None,
                  saver=None):
+                 
     mse_weight = [0.0684, 0.171, 0.3422, 0.2395, 0.5474, 0.3422]
 
     batch_time_m = AverageMeter()
@@ -346,14 +361,18 @@ def _train_epoch(supernet,
         ce_loss_fn = nn.CrossEntropyLoss().cuda()
     if args.feature_train:
         mse_loss_fn = nn.MSELoss().cuda()
+
     supernet.train()
     teacher.train()
+
     num_updates = epoch * len(train_loader)
+
     for step, (inputs, targets) in enumerate(train_loader):
         scheduler.step_update(num_updates=num_updates, metric=losses_m.avg)
         # inputs = inputs.cuda()
         with torch.no_grad():
-            guides, last_guide = teacher.forward(inputs, end_block=stage)
+            # teacher = GenEfficientNet
+            guides, last_guide = teacher.forward(inputs, end_block=stage) # 最后的logits和倒数第二层输出
             if args.print_detail:
                 guide_mean = guides.mean()
                 guide_abs_mean = guides.abs().mean()
@@ -361,6 +380,8 @@ def _train_epoch(supernet,
                 guide_var = guides.var()
         # if use_target or args.label_train:
         #     targets = targets.cuda()
+    
+        # 随机采样，生成编码
         if len(model_pool) > 0:
             partial_model = random.choice(model_pool)
         else:
@@ -390,6 +411,7 @@ def _train_epoch(supernet,
                 assert (args.feature_train or args.label_train)
                 feature_loss = 0
                 supervise_loss = 0
+                
                 if args.feature_train:
                     feature_loss = mse_loss_fn(logits, guides)
                     loss = feature_loss

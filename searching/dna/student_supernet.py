@@ -6,6 +6,7 @@ from torch.autograd import Variable
 from .operations import OPS
 from .operations import reset
 
+# 基元
 PRIMITIVES = ['MB6_3x3_se0.25',
               'MB6_5x5_se0.25',
               'MB6_7x7_se0.25',
@@ -31,6 +32,10 @@ def fair_random_op_encoding(num_of_ops, layers):
 
 class MixOps(nn.Module):
     def __init__(self, inc, outc, stride, to_dispatch=False, init_op_index=None, hidden_outc=None):
+        '''
+        to_dispatch: 调度，根据init_op_index的值进行调度
+        init_op_index: 初始化op的idx
+        '''
         assert to_dispatch == (init_op_index is not None)
         super(MixOps, self).__init__()
         self._mix_ops = nn.ModuleList()
@@ -59,29 +64,31 @@ class Block(nn.Module):
     def __init__(self, inc, hidden_outc, outc, stride, layers, to_dispatch=False, init_op_list=None):
         super(Block, self).__init__()
         init_op_list = init_op_list if init_op_list is not None else [
-            None] * layers  # to_dispatch
+            None] * layers  # to_dispatch： 分配意思是，如果没有赋予操作，直接设置为0，即默认用第一个op
         self._block_layers = nn.ModuleList()
         # TODO:
         if layers == 1:
             self._block_layers.append(
-                MixOps(inc, outc, stride, to_dispatch, init_op_list[0]))
+                MixOps(inc, outc, stride, to_dispatch, init_op_list[0])
+            )
         else:
             for i in range(layers):
-                if i == 0:
+                if i == 0: # 第一个
                     self._block_layers.append(
                         MixOps(inc, hidden_outc, stride, to_dispatch, init_op_list[i],
                                hidden_outc=hidden_outc))
-                elif i == layers - 1:
+                elif i == layers - 1: # 最后一个
                     self._block_layers.append(
                         MixOps(hidden_outc, outc, 1, to_dispatch, init_op_list[i],
                                hidden_outc=hidden_outc))
-                else:
+                else: # 中间
                     self._block_layers.append(
                         MixOps(hidden_outc, hidden_outc, 1, to_dispatch, init_op_list[i],
                                hidden_outc=hidden_outc))
 
     def forward(self, x, forwad_list=None):
         assert len(forwad_list) == len(self._block_layers)
+        
         for i, layer in enumerate(self._block_layers):
             x = layer(x, forwad_list[i])
         return x
@@ -92,10 +99,10 @@ class Block(nn.Module):
 
 class StudentSuperNet(nn.Module):
     #  hidden_outc / outc /stride / layers
-
+    #  init_op_list =     [0,0,  1,1,  0,0,0,  1,1,1,  1,1,1,1,  0]
+    #  block_layers_num = [2,    2,    3,      3,      4,        1]
     def __init__(self, num_classes, to_dispatch=False, init_op_list=None, block_layers_num=None):
         super(StudentSuperNet, self).__init__()
-        #                hid-oc:outc:stride:layers 
         self.block_cfgs = [[24, 24 * 2, 2, 2],
                            [40, 40 * 2, 2, 4],
                            [80, 80 * 2, 2, 4],
@@ -105,14 +112,14 @@ class StudentSuperNet(nn.Module):
 
         if block_layers_num is not None:
             for i in range(len(self.block_cfgs)):
-                self.block_cfgs[i][3] = block_layers_num[i]
+                self.block_cfgs[i][3] = block_layers_num[i] # 调整最后的layers的数量
         # [origin_outc, outc, stride, num_layers]
 
         # inc, outc = next(channel_cfg), next(channel_cfg)
         self._to_dis = to_dispatch
-        self._op_layers_list = [cfg[-1] for cfg in self.block_cfgs]
-        self._init_op_list = init_op_list if init_op_list is not None else [None] * sum(
-            self._op_layers_list)  # dispatch params
+        self._op_layers_list = [cfg[-1] for cfg in self.block_cfgs] # 得到修改后的layer数量列表
+        self._init_op_list = init_op_list if init_op_list is not None else [None] * sum(self._op_layers_list)  # dispatch params 
+        # 特判，如果为None，那么重复None遍
 
         self._stem = nn.Sequential(OPS['Conv3x3_BN_swish'](3, 32, 2),
                                    OPS['MB1_3x3_se0.25'](32, 16, 1))
@@ -127,11 +134,10 @@ class StudentSuperNet(nn.Module):
         self._blocks = nn.ModuleList()
         block_layer_index = 0
         for sing_cfg in block_cfgs:
-            hidden_outc, outc, stride, layers = sing_cfg[0], sing_cfg[1], sing_cfg[2], sing_cfg[3]
+            hidden_outc, outc, stride, layers = sing_cfg[0], sing_cfg[1], sing_cfg[2], sing_cfg[3] # 得到某一层配置文件
             self._blocks.append(
                 Block(inc, hidden_outc, outc, stride, layers, to_dispatch=self._to_dis,
-                      init_op_list=self._init_op_list[
-                          block_layer_index:block_layer_index + layers]))
+                      init_op_list=self._init_op_list[block_layer_index:block_layer_index + layers])) # 取其中两个op
             inc = outc
             block_layer_index += layers
 
@@ -169,7 +175,7 @@ class StudentSuperNet(nn.Module):
         return feature, last, logits
 
     def _set_forward_cfg(self, encoding=None, method='uni', reverse_encod=False,
-                         start_block=-1):  
+                         start_block=-1):
         # support method: uniform/fair
         # TODO: support fair
         if self._to_dis:  # stand-alone must be zeros
@@ -182,8 +188,7 @@ class StudentSuperNet(nn.Module):
         if encoding is not None:
             start_idx = sum(x[-1] for x in self.block_cfgs[:start_block + 1])
             if reverse_encod:
-                self._forward_op[(-start_idx - len(encoding))
-                                  :-start_idx] = encoding
+                self._forward_op[(-start_idx - len(encoding))                                 :-start_idx] = encoding
             else:
                 self._forward_op[start_idx:(
                     start_idx + len(encoding))] = encoding

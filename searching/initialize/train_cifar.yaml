@@ -61,7 +61,7 @@ eval_intervals: 2 # eval intervals when training
 update_frequency: 1 # set equal to num_ops when fair sample
 potential_eval_times: 20 # eval times when calculating potential
 distill_last_stage: true # true to distill the last stage, false to calculate classification CE loss in the last stage
-test_dispatch: '' # 'b0', 'b7', '', 'crsupernet'
+test_dispatch: 'b0' # 'b0', 'b7', '', 'crsupernet'
 print_detail: true # print GRLoss and mean etc.
 
 loss_weight: [0.5, 0.5] # [feature, supervise] only work if feature and label train are both true

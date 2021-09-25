@@ -716,7 +716,6 @@ class GenEfficientNet(nn.Module):
 
     def forward(self, x, start_block=None, end_block=None, pool=True):
         '''
-
         :param x:
         :param start_block: begin forward with this block
         :param end_block:

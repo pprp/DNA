@@ -122,7 +122,7 @@ def main():
     else:
         supernet = StudentSuperNet(num_classes=args.num_classes)
         
-    teacher = create_model('tf_efficientnet_b7',#'tf_efficientnet_b7',
+    teacher = create_model('tf_efficientnet_b3',#'tf_efficientnet_b7',
                            pretrained=True,
                            num_classes=args.num_classes)
 
