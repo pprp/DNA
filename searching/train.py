@@ -18,6 +18,7 @@ from timm_.scheduler import create_scheduler
 from dna.distill_train import distill_train
 from dna.student_supernet import StudentSuperNet
 from initialize import Initial
+import torchvision 
 
 import torch
 import torch.nn as nn
@@ -38,8 +39,8 @@ def main():
 # ================== Init =================
     args = parser.parse_args()
     initial = Initial(args,
-                      base_configs=['train_pipeline.yaml',
-                                          'data.yaml'],
+                      base_configs=['train_cifar.yaml',
+                                          'cifar_data.yaml'],
                       hyperparam_config=args.hyperparam_config)
     args = initial.args
 # ---- Set Output Dir & Logger ----
@@ -120,7 +121,8 @@ def main():
         # Computation Reallocation Supernet
     else:
         supernet = StudentSuperNet(num_classes=args.num_classes)
-    teacher = create_model('tf_efficientnet_b7',
+        
+    teacher = create_model('tf_efficientnet_b7',#'tf_efficientnet_b7',
                            pretrained=True,
                            num_classes=args.num_classes)
 
@@ -203,10 +205,27 @@ def main():
     # if args.local_rank == 0:
     #     logging.info('Scheduled epochs: {}'.format(num_epochs))
 # ---- Create Data Loader ----
+    import torchvision.transforms as transforms
+
+    transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465),
+                                (0.2023, 0.1994, 0.2010)),
+        ])
+
+    transform_eval = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.4914, 0.4822, 0.4465),
+                             (0.2023, 0.1994, 0.2010)),
+    ])
     train_dir = os.path.join(args.datadir, 'train')
-    dataset_train = Dataset(train_dir)
+    # dataset_train = Dataset(train_dir)
+    dataset_train = torchvision.datasets.CIFAR10("~/data", train=True, download=True,transform=transform_train)
     eval_dir = os.path.join(args.datadir, 'validation')
-    dataset_eval = Dataset(eval_dir)
+    # dataset_eval = Dataset(eval_dir)
+    dataset_eval = torchvision.datasets.CIFAR10("~/data", train=False, download=True, transform=transform_eval)
     loader_train = create_loader(dataset_train,
                                  input_size=data_config['input_size'],
                                  batch_size=args.batch_size,
@@ -220,6 +239,7 @@ def main():
                                  std=data_config['std'],
                                  num_workers=args.workers,
                                  distributed=args.distributed)
+
     loader_eval = create_loader(dataset_eval,
                                 input_size=data_config['input_size'],
                                 batch_size=args.batch_size,

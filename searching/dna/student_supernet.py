@@ -20,7 +20,7 @@ def uniform_random_op_encoding(num_of_ops, layers):
 
 
 def fair_random_op_encoding(num_of_ops, layers):
-    # return alist 
+    # return alist
     encodings = np.zeros((layers, num_of_ops), dtype=np.int8)
     for i in range(layers):
         encodings[:][i] = np.random.choice(np.arange(0, num_of_ops),
@@ -36,14 +36,17 @@ class MixOps(nn.Module):
         self._mix_ops = nn.ModuleList()
         if to_dispatch:
             if PRIMITIVES[init_op_index].endswith('_dual'):
-                self._mix_ops.append(OPS[PRIMITIVES[init_op_index]](inc, outc, stride, hidden_outc))
+                self._mix_ops.append(OPS[PRIMITIVES[init_op_index]](
+                    inc, outc, stride, hidden_outc))
             else:
-                self._mix_ops.append(OPS[PRIMITIVES[init_op_index]](inc, outc, stride))
+                self._mix_ops.append(
+                    OPS[PRIMITIVES[init_op_index]](inc, outc, stride))
 
         else:
             for prim in PRIMITIVES:
                 if prim.endswith('_dual'):
-                    self._mix_ops.append(OPS[prim](inc, outc, stride, hidden_outc))
+                    self._mix_ops.append(
+                        OPS[prim](inc, outc, stride, hidden_outc))
                 else:
                     self._mix_ops.append(OPS[prim](inc, outc, stride))
 
@@ -55,7 +58,8 @@ class MixOps(nn.Module):
 class Block(nn.Module):
     def __init__(self, inc, hidden_outc, outc, stride, layers, to_dispatch=False, init_op_list=None):
         super(Block, self).__init__()
-        init_op_list = init_op_list if init_op_list is not None else [None] * layers  # to_dispatch
+        init_op_list = init_op_list if init_op_list is not None else [
+            None] * layers  # to_dispatch
         self._block_layers = nn.ModuleList()
         # TODO:
         if layers == 1:
@@ -91,12 +95,14 @@ class StudentSuperNet(nn.Module):
 
     def __init__(self, num_classes, to_dispatch=False, init_op_list=None, block_layers_num=None):
         super(StudentSuperNet, self).__init__()
+        #                hid-oc:outc:stride:layers 
         self.block_cfgs = [[24, 24 * 2, 2, 2],
                            [40, 40 * 2, 2, 4],
                            [80, 80 * 2, 2, 4],
                            [112, 112 * 2, 1, 4],
                            [192, 192 * 2, 2, 4],
                            [320, 320 * 2, 1, 1]]
+
         if block_layers_num is not None:
             for i in range(len(self.block_cfgs)):
                 self.block_cfgs[i][3] = block_layers_num[i]
@@ -107,8 +113,10 @@ class StudentSuperNet(nn.Module):
         self._op_layers_list = [cfg[-1] for cfg in self.block_cfgs]
         self._init_op_list = init_op_list if init_op_list is not None else [None] * sum(
             self._op_layers_list)  # dispatch params
+
         self._stem = nn.Sequential(OPS['Conv3x3_BN_swish'](3, 32, 2),
                                    OPS['MB1_3x3_se0.25'](32, 16, 1))
+
         self._make_block(self.block_cfgs)
         self._stern = OPS['Conv1x1_BN_swish'](640, 1280, 1)
         self._avgpool = nn.AvgPool2d(7)
@@ -123,7 +131,7 @@ class StudentSuperNet(nn.Module):
             self._blocks.append(
                 Block(inc, hidden_outc, outc, stride, layers, to_dispatch=self._to_dis,
                       init_op_list=self._init_op_list[
-                                   block_layer_index:block_layer_index + layers]))
+                          block_layer_index:block_layer_index + layers]))
             inc = outc
             block_layer_index += layers
 
@@ -161,7 +169,8 @@ class StudentSuperNet(nn.Module):
         return feature, last, logits
 
     def _set_forward_cfg(self, encoding=None, method='uni', reverse_encod=False,
-                         start_block=-1):  # support method: uniform/fair
+                         start_block=-1):  
+        # support method: uniform/fair
         # TODO: support fair
         if self._to_dis:  # stand-alone must be zeros
             self._forward_op = np.zeros(sum(self._op_layers_list), dtype=int)
@@ -173,9 +182,11 @@ class StudentSuperNet(nn.Module):
         if encoding is not None:
             start_idx = sum(x[-1] for x in self.block_cfgs[:start_block + 1])
             if reverse_encod:
-                self._forward_op[(-start_idx - len(encoding)):-start_idx] = encoding
+                self._forward_op[(-start_idx - len(encoding))
+                                  :-start_idx] = encoding
             else:
-                self._forward_op[start_idx:(start_idx + len(encoding))] = encoding
+                self._forward_op[start_idx:(
+                    start_idx + len(encoding))] = encoding
 
     def reset_params(self):
         self.apply(reset)
@@ -198,5 +209,6 @@ class StudentSuperNet(nn.Module):
 
 
 def get_model_parameters_number(model):
-    params_num = sum(p.numel() for p in model.parameters())  # if p.requires_grad)
+    params_num = sum(p.numel()
+                     for p in model.parameters())  # if p.requires_grad)
     return params_num

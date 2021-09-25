@@ -1,0 +1,7 @@
+dataset: cifar10  # Name of pretrain dataset
+datadir: /data/cifar10  # Root path to pretrain dataset
+img_size: 32
+interpolation: ''
+mean: null
+std: null
+num_classes: 10
