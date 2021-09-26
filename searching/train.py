@@ -45,23 +45,23 @@ def main():
     args = initial.args
 # ---- Set Output Dir & Logger ----
     output_dir = ''
-    if args.local_rank == 0:
-        # print(args.__dict__)
-        output_base = args.output if args.output else './output'
-        if args.index:
-            exp_name = '{}-{}-{}-ep{}-lr{}-bs{}-{}'.format(args.index, args.opt, args.sched, args.step_epochs,
-            args.lr[0] if isinstance(args.lr, list) else args.lr,
-            args.batch_size, time.strftime("%Y%m%d-%H%M%S"))
-        else:
-            exp_name = '{}-{}-ep{}-lr{}-bs{}-{}'.format(args.opt, args.sched, args.step_epochs,
-            args.lr[0] if isinstance(args.lr, list) else args.lr,
-            args.batch_size, time.strftime("%Y%m%d-%H%M%S"))
+    # if args.local_rank == 0:
+    # print(args.__dict__)
+    output_base = args.output if args.output else './output'
+    if args.index:
+        exp_name = '{}-{}-{}-ep{}-lr{}-bs{}-{}'.format(args.index, args.opt, args.sched, args.step_epochs,
+        args.lr[0] if isinstance(args.lr, list) else args.lr,
+        args.batch_size, time.strftime("%Y%m%d-%H%M%S"))
+    else:
+        exp_name = '{}-{}-ep{}-lr{}-bs{}-{}'.format(args.opt, args.sched, args.step_epochs,
+        args.lr[0] if isinstance(args.lr, list) else args.lr,
+        args.batch_size, time.strftime("%Y%m%d-%H%M%S"))
 
-        output_dir = get_outdir(output_base, 'test', args.exp_dir, exp_name, scripts_to_save='All')
+    output_dir = get_outdir(output_base, 'test', args.exp_dir, exp_name, scripts_to_save='All')
     setup_default_logging(output_dir, args)
     writer = None
-    if args.local_rank == 0:
-        writer = SummaryWriter(output_dir)
+    # if args.local_rank == 0:
+    writer = SummaryWriter(output_dir)
 # ---- Init ----
     args.distributed = False
     if 'WORLD_SIZE' in os.environ:
@@ -122,7 +122,7 @@ def main():
     else:
         supernet = StudentSuperNet(num_classes=args.num_classes)
         
-    teacher = create_model('tf_efficientnet_b3',#'tf_efficientnet_b7',
+    teacher = create_model('tf_efficientnet_b7',#'tf_efficientnet_b7',
                            pretrained=True,
                            num_classes=args.num_classes)
 
@@ -145,6 +145,7 @@ def main():
 
     supernet.cuda()
     teacher.cuda()
+    
 # ---- Create Optimizer ----
     optimizer = create_optimizer(args, supernet)
     # if optimizer_state is not None:
@@ -266,9 +267,9 @@ def main():
 # ---- Saver ----
     saver = None
     eval_metric = 'loss'
-    if args.local_rank == 0:
-        decreasing = True if eval_metric == 'loss' else False
-        saver = CheckpointSaver(checkpoint_dir=output_dir, decreasing=decreasing)
+    # if args.local_rank == 0:
+    decreasing = True if eval_metric == 'loss' else False
+    saver = CheckpointSaver(checkpoint_dir=output_dir, decreasing=decreasing)
         # print(teacher)
 # ================ Train & Eval & Save ===================
     distill_train(supernet=supernet,

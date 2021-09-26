@@ -93,12 +93,13 @@ def distill_train(supernet,
         if not (args.guide_input and args.train_mode):
             # not skip search
             potential = None
+            # 获取有潜力的模型
             if len(args.test_dispatch) == 0 or args.test_dispatch == 'crsupernet':
                 stage_model_pool = get_all_models(supernet=supernet,
                                                   stage=stage,
                                                   model_pool=model_pool,
                                                   args=args)
-
+                logging.info("get potential model......")
                 potential = _potential(supernet=supernet,
                                        teacher=teacher,
                                        eval_loader=poten_loader,

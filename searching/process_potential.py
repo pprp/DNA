@@ -16,7 +16,7 @@ def main():
     loss_join = 'sum'  # 'sum' or 'mul'
     # b0_constrain = {'params': 5288548,
     #                 'FLOPS' : 399362}
-    target_constrain = 460000
+    target_constrain = 360000
     PRIMITIVES = ['MB6_3x3_se0.25',
                   'MB6_5x5_se0.25',
                   'MB6_7x7_se0.25',
