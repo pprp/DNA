@@ -28,7 +28,7 @@ sync_bn: false  # enabling apex sync BN. (default: false) # NOTE: DO NOT USE WHE
 workers: 4  # how many data processes to use (default: 4)
 
 # ----- Hyper-parameters -----
-batch_size: 256  # input batch size for training (default: 64)
+batch_size: 512  # input batch size for training (default: 64)
 # -- optimizer --
 opt: adam  # Optimizer (default: "sgd")
 opt_eps: 1.0e-08  # Optimizer Epsilon (default: 1e-8)
@@ -56,7 +56,7 @@ reset_bn_eval: true # recalibrate bn when evaluation (default true)
 guide_loss_fn: mse # 'mse' or 'klcos' (default mse)
 stage_num: 6 # number of stages, same as len(supernet.block_cfg)
 top_model_num: 3 # model pool size
-step_epochs: 20 # train epochs every stage
+step_epochs: 50 # train epochs every stage
 eval_intervals: 2 # eval intervals when training
 update_frequency: 1 # set equal to num_ops when fair sample
 potential_eval_times: 20 # eval times when calculating potential

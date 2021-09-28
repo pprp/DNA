@@ -9,7 +9,7 @@ class Initial:
         self.args = args
         if base_configs:
             for base_config in base_configs:
-                self.base_init = self.parser('searching/initialize/'+base_config)
+                self.base_init = self.parser('initialize/'+base_config)
         if hyperparam_config:
             self.hyper_param_config = self.parser(os.path.join(args.cache_root, hyperparam_config))
 
